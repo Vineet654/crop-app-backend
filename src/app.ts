@@ -7,6 +7,7 @@ import cookieParser from "cookie-parser";
 import path from "node:path";
 import authRouter from "./routes/auth.route";
 import profileRouter from "./routes/profile.route";
+import moistureRouter from "./routes/moisture.route";
 import { errorHandler } from "./utils/error-handler";
 import './db';
 dotenv.config();
@@ -31,4 +32,5 @@ res.status(200).json({
 app.use('/api/assets', express.static(path.resolve(__dirname, '..', 'public/assets')));
 app.use('/api/auth', authRouter);
 app.use('/api/profile', profileRouter);
+app.use('/api/moisture', moistureRouter);
 export default app;
