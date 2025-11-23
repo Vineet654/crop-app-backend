@@ -1,8 +1,7 @@
-// src/services/mail/emails.ts
 import dotenv from "dotenv";
 dotenv.config();
 
-const mailjet = require('node-mailjet');
+import Mailjet from "node-mailjet";
 
 import {
   VERIFICATION_EMAIL_TEMPLATE,
@@ -11,60 +10,58 @@ import {
   VERIFICATION_EMAIL_SUCCESS_TEMPLATE,
 } from "./email.templates";
 
-const MJ_APIKEY_PUBLIC = process.env.MJ_APIKEY_PUBLIC;
-const MJ_APIKEY_PRIVATE = process.env.MJ_APIKEY_PRIVATE;
-const MJ_SENDER = process.env.MJ_SENDER || process.env.GMAIL_USER || "no-reply@example.com";
+const MJ_APIKEY_PUBLIC = process.env.MJ_APIKEY_PUBLIC!;
+const MJ_APIKEY_PRIVATE = process.env.MJ_APIKEY_PRIVATE!;
+const MJ_SENDER = process.env.MJ_SENDER || "no-reply@yourapp.com";
 
-if (!MJ_APIKEY_PUBLIC || !MJ_APIKEY_PRIVATE) {
-  console.warn("Mailjet API keys are not set. Emails will fail until configured.");
-}
-
-const client = (MJ_APIKEY_PUBLIC && MJ_APIKEY_PRIVATE)
-  ? mailjet.connect(MJ_APIKEY_PUBLIC, MJ_APIKEY_PRIVATE)
-  : null;
+// FIX: Use apiConnect instead of connect
+const mailjetClient = Mailjet.apiConnect(
+  MJ_APIKEY_PUBLIC,
+  MJ_APIKEY_PRIVATE
+);
 
 async function sendMail(to: string, subject: string, html: string) {
-  if (!client) {
-    console.error("Cannot send mail: Mailjet client not configured.");
-    return;
-  }
-
-  const requestBody = {
-    Messages: [
-      {
-        From: {
-          Email: MJ_SENDER,
-          Name: "Crop Manager",
-        },
-        To: [
+  try {
+    const response = await mailjetClient
+      .post("send", { version: "v3.1" })
+      .request({
+        Messages: [
           {
-            Email: to,
+            From: {
+              Email: MJ_SENDER,
+              Name: "Crop Manager App",
+            },
+            To: [{ Email: to }],
+            Subject: subject,
+            HTMLPart: html,
           },
         ],
-        Subject: subject,
-        HTMLPart: html,
-      },
-    ],
-  };
+      });
 
-  try {
-    const res = await client.post("send", { version: "v3.1" }).request(requestBody);
-    // Mailjet returns response with Status and message id; log for debugging
-    console.log("Mailjet send status:", res.body && res.body.Messages && res.body.Messages[0] && res.body.Messages[0].Status);
+    // Cast response.body to any to access the specific Mailjet structure
+    const result = response.body as any;
+    console.log("Mailjet send status:", result.Messages[0].Status);
+    
   } catch (err: any) {
-    console.error("Mailjet error sending email:", err?.message || err);
-    if (err?.response?.body) {
-      console.error("Mailjet response body:", err.response.body);
+    console.error("Mailjet error:", err.message || err);
+    // improved error logging for debugging
+    if (err.statusCode) {
+        console.error("Status Code:", err.statusCode);
+    }
+    if (err.response?.body) {
+        console.error("API Response:", JSON.stringify(err.response.body, null, 2));
     }
   }
 }
 
 export const sendVerificationEmail = async (email: string, verificationToken: string) => {
+  // Note: ensure your template uses exactly {verificationCode}
   const html = VERIFICATION_EMAIL_TEMPLATE.replace("{verificationCode}", verificationToken);
   await sendMail(email, "Verify your email", html);
 };
 
 export const sendWelcomeEmail = async (email: string, name: string) => {
+  // Note: ensure your template uses exactly {{user_name}}
   const html = VERIFICATION_EMAIL_SUCCESS_TEMPLATE.replace("{{user_name}}", name);
   await sendMail(email, "Welcome to Crop Manager App!", html);
 };
