@@ -8,6 +8,6 @@ const moistureRouter = express.Router();
 moistureRouter.get ("/latest", getLatestLogs);
 
 // Example: /farm/moisture/summary
-moistureRouter.get("/moisture/summary", getSummary);
+moistureRouter.get("/summary", getSummary);
 
 export default moistureRouter;
